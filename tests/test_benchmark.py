@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -64,6 +65,21 @@ class BenchmarkTests(unittest.TestCase):
                     self.assertLessEqual(case["ttft_p50_s"], case["latency_p50_s"])
             for private in ("PRIVATE_TOKEN", "PRIVATE_GENERATED_TEXT", prompts[0]):
                 self.assertNotIn(private, output.read_text() + console.getvalue())
+
+    def test_default_artifacts_stay_in_the_lab_when_called_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            lab=Path(temporary)/"lab"; foreign=Path(temporary)/"unrelated-project"
+            (lab/".local").mkdir(parents=True);foreign.mkdir()
+            (lab/".local/api-token").write_text("PRIVATE_TOKEN")
+            old_directory=Path.cwd()
+            try:
+                os.chdir(foreign)
+                with patch.object(benchmark,"ROOT",lab),patch.object(benchmark,"urlopen",side_effect=lambda *a,**k:response()),contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(benchmark.main(["--requests","1","--warmup-requests","0"]),0)
+            finally:
+                os.chdir(old_directory)
+            self.assertEqual(list(foreign.iterdir()),[])
+            self.assertEqual(json.loads((lab/"results/benchmark.json").read_text())["status"],"passed")
 
     def test_http_failures_are_counted_without_logging_error_body(self):
         def unauthorized(*args, **kwargs):

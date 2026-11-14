@@ -14,6 +14,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def measure(base_url, token, model, prompt, max_tokens, ignore_eos=False):
     payload = {
@@ -163,7 +165,7 @@ def benchmark_case(args, token, prompt, prefix, concurrency):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8001")
-    parser.add_argument("--token-file", type=Path, default=Path(".local/api-token"))
+    parser.add_argument("--token-file", type=Path, default=ROOT / ".local/api-token")
     parser.add_argument("--model", default="qwen2.5-1.5b-instruct")
     parser.add_argument("--requests", type=int, default=8)
     parser.add_argument("--concurrency", type=int, default=2)
@@ -172,7 +174,7 @@ def main(argv=None):
     parser.add_argument("--warmup-requests", type=int, default=1)
     parser.add_argument("--ignore-eos", action="store_true", help="Generate exactly max-tokens for a controlled comparison.")
     parser.add_argument("--gpu-metrics", action="store_true", help="Record whole-GPU memory and utilization with nvidia-smi.")
-    parser.add_argument("--output", type=Path, default=Path("results/benchmark.json"))
+    parser.add_argument("--output", type=Path, default=ROOT / "results/benchmark.json")
     args = parser.parse_args(argv)
     levels = args.concurrency_levels if args.concurrency_levels is not None else [args.concurrency]
     if min(args.requests, args.max_tokens, *levels) < 1 or args.warmup_requests < 0:

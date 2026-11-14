@@ -8,6 +8,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def request(base_url, path, token=None, payload=None):
     headers = {"Content-Type": "application/json"}
@@ -25,7 +27,7 @@ def request(base_url, path, token=None, payload=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8001")
-    parser.add_argument("--token-file", type=Path, default=Path(".local/api-token"))
+    parser.add_argument("--token-file", type=Path, default=ROOT / ".local/api-token")
     parser.add_argument("--context", default="llm-inference-lab-gpu")
     parser.add_argument("--backend", choices=("compose", "kubernetes"), default="compose")
     parser.add_argument("--output", type=Path)
@@ -83,7 +85,7 @@ def main():
                    ["kubectl", "--context", args.context, "-n", "llm-inference-lab", "logs", "deployment/vllm", "-c", "server"])
         result = subprocess.run(
             command,
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, check=True, cwd=ROOT,
         )
         logs = result.stdout + result.stderr
         if any(value in logs for value in private_values):
