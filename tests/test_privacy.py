@@ -36,6 +36,18 @@ class PrivacyTests(unittest.TestCase):
         self.assertIn("runtime_log", events)
         self.assertIn("runtime_failure", events)
 
+    def test_direct_traceback_printing_does_not_disclose_exception_text(self):
+        secret = "PRIVATE_MULTIPROCESSING_EXCEPTION_CONTENT"
+        configuration = {"version":1,"formatters":{"safe":{"()":"app.safe_logging.SafeJsonFormatter"}},"handlers":{"safe":{"class":"logging.StreamHandler","formatter":"safe"}},"root":{"level":"INFO","handlers":["safe"]}}
+        with tempfile.TemporaryDirectory() as temporary:
+            config = Path(temporary) / "logging.json"
+            config.write_text(json.dumps(configuration))
+            script = "import traceback\ntry: raise ValueError('" + secret + "')\nexcept ValueError: traceback.print_exc()"
+            result = subprocess.run([sys.executable, "-c", script], env={**os.environ,"APP_LOGGING_CONFIG":str(config)},capture_output=True,text=True)
+        self.assertEqual(result.returncode,0)
+        self.assertNotIn(secret,result.stdout+result.stderr)
+        self.assertEqual(json.loads(result.stderr)["error_type"],"ValueError")
+
     def test_upstream_messages_arguments_and_tracebacks_are_not_rendered(self):
         output = io.StringIO()
         handler = logging.StreamHandler(output)
