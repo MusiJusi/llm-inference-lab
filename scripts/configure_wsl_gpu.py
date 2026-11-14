@@ -24,6 +24,7 @@ def main():
     spec_file = ROOT / ".local/cdi-nvidia.json"
     spec_file.write_text(json.dumps(spec,indent=2))
     subprocess.run(["docker","cp",str(spec_file),CONTEXT+":/etc/cdi/nvidia.yaml"],check=True)
+    subprocess.run(["docker","exec","-i",CONTEXT,"tee","/var/run/cdi/nvidia.yaml"],input=json.dumps(spec),capture_output=True,text=True,check=True)
     subprocess.run(["docker","exec",CONTEXT,"nvidia-ctk","config","--set","nvidia-container-runtime.mode=cdi","--in-place"],check=True)
     patch = {"spec":{"template":{"spec":{
         "volumes":[{"name":"wsl-dxcore","hostPath":{"path":"/usr/lib/x86_64-linux-gnu/libdxcore.so","type":"File"}}],

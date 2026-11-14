@@ -1,0 +1,13 @@
+{
+  "endpoint": "passed",
+  "log_privacy": "passed",
+  "offline_cache": "passed",
+  "pod_restart": "passed",
+  "post_restart_endpoint": "passed",
+  "gpu_runtime": {
+    "uid": 10001,
+    "gpu": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+    "cuda": "13.0",
+    "cuda_computation": "passed"
+  }
+}

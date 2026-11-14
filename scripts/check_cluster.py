@@ -105,7 +105,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--context", default="llm-inference-lab-gpu")
     parser.add_argument("--benchmark", action="store_true")
-    parser.add_argument("--base-url", default="http://127.0.0.1:8001")
+    parser.add_argument("--output", type=Path, default=Path("results/kubernetes.json"))
     args = parser.parse_args()
     smoke = [sys.executable, "scripts/smoke_test.py", "--context", args.context, "--backend", "kubernetes"]
     deployment = json.loads(kubectl(args.context, "get", "deployment", "vllm", "-o", "json"))
@@ -122,10 +122,13 @@ def main():
         raise RuntimeError("The restarted Pod did not use the local model cache.")
     with forwarded_api(args.context):
         subprocess.run(smoke, check=True)
+    runtime_command = "import json,os,torch; assert os.getuid()==10001; assert torch.cuda.is_available(); assert float(torch.ones(4,device='cuda').sum())==4; print(json.dumps({'uid':os.getuid(),'gpu':torch.cuda.get_device_name(0),'cuda':torch.version.cuda,'cuda_computation':'passed'}))"
+    runtime = json.loads(kubectl(args.context, "exec", "deployment/vllm", "-c", "server", "--", "python3", "-c", runtime_command).splitlines()[-1])
     Path("results").mkdir(exist_ok=True)
-    Path("results/integration.json").write_text(json.dumps({
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps({
         "endpoint": "passed", "log_privacy": "passed", "offline_cache": "passed",
-        "pod_restart": "passed", "post_restart_endpoint": "passed",
+        "pod_restart": "passed", "post_restart_endpoint": "passed", "gpu_runtime": runtime,
     }, indent=2) + "\n", encoding="utf-8")
     print("Kubernetes integration checks passed.")
 

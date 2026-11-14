@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$SkipBuild, [int]$Cpus = 4, [int]$MemoryMB = 12288)
+param([switch]$SkipBuild, [switch]$ImportLocalCache, [int]$Cpus = 4, [int]$MemoryMB = 12288)
 $ErrorActionPreference = 'Stop'
 $labRoot = Split-Path -Parent $PSScriptRoot
 $labProfile = 'llm-inference-lab-gpu'
@@ -28,7 +28,8 @@ try {
     if (-not $SkipBuild) { Invoke-LabCommand 'docker' @('compose', 'build') }
     Invoke-LabCommand $labMinikube @('start', '--profile', $labProfile, '--driver=docker', '--container-runtime=docker', '--gpus=all', '--base-image=gcr.io/k8s-minikube/kicbase:v0.0.51', '--preload=false', ('--cpus=' + $Cpus), ('--memory=' + $MemoryMB), '--kubernetes-version=v1.37.0', '--keep-context')
     if ($env:OS -eq 'Windows_NT') { Invoke-LabCommand 'python' @('scripts/configure_wsl_gpu.py') }
-    Invoke-LabCommand $labMinikube @('image', 'load', '--profile', $labProfile, 'llm-inference-lab-downloader:dev', 'llm-inference-lab:dev')
+    Invoke-LabCommand 'python' @('scripts/load_images.py', '--minikube', $labMinikube)
+    if ($ImportLocalCache) { Invoke-LabCommand 'python' @('scripts/import_local_cache.py') }
     Invoke-LabCommand 'kubectl' @('--context', $labProfile, 'apply', '-f', 'k8s/base/namespace.yaml')
     $labSecret = @{
         apiVersion = 'v1'; kind = 'Secret'; type = 'Opaque'

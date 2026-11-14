@@ -1,0 +1,9 @@
+{
+  "endpoint": "passed",
+  "authentication": "passed",
+  "streaming": "passed",
+  "log_privacy": "passed",
+  "network_forbidden_cache": "passed",
+  "restart_same_image": "passed",
+  "post_restart_endpoint": "passed"
+}
