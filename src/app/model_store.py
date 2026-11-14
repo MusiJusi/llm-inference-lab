@@ -25,6 +25,21 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def validate_weight_index(directory: Path, files: dict) -> None:
+    index_name = "model.safetensors.index.json"
+    if index_name not in files:
+        if (directory / index_name).exists():
+            raise ValueError("The weight index is missing from the snapshot manifest.")
+        return
+    index = json.loads((directory / index_name).read_text(encoding="utf-8"))
+    weights = index.get("weight_map")
+    if not isinstance(weights, dict) or not weights:
+        raise ValueError("The weight index is empty or malformed.")
+    for name in weights.values():
+        if not isinstance(name, str) or not name.endswith(".safetensors") or name not in files:
+            raise ValueError("The model is missing a shard listed in the weight index.")
+
+
 def write_manifest(directory: Path, model_id: str, revision: str) -> None:
     files = {}
     for path in sorted(directory.rglob("*")):
@@ -42,6 +57,7 @@ def write_manifest(directory: Path, model_id: str, revision: str) -> None:
         raise ValueError("The downloaded model is missing configuration files.")
     if not any(name.endswith(".safetensors") for name in files):
         raise ValueError("The downloaded model is missing safetensors weights.")
+    validate_weight_index(directory, files)
     temporary = directory / (MANIFEST + ".tmp")
     temporary.write_text(
         json.dumps({"model_id": model_id, "revision": revision, "files": files}),
@@ -72,6 +88,7 @@ def snapshot_ready(directory: Path, model_id: str, revision: str) -> bool:
                 return False
             if sha256_file(path) != expected["sha256"]:
                 return False
+        validate_weight_index(directory, files)
         return True
     except (OSError, ValueError, KeyError, TypeError):
         return False

@@ -41,6 +41,22 @@ class SnapshotTests(unittest.TestCase):
             marker.write_text(json.dumps(data))
             self.assertFalse(snapshot_ready(directory, MODEL, REVISION))
 
+    def test_missing_weight_shards_never_form_a_complete_snapshot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "config.json").write_text("{}")
+            (directory / "tokenizer_config.json").write_text("{}")
+            (directory / "model-00001-of-00002.safetensors").write_bytes(b"first")
+            (directory / "model.safetensors.index.json").write_text(json.dumps({"weight_map":{"a":"model-00001-of-00002.safetensors","b":"model-00002-of-00002.safetensors"}}))
+            with self.assertRaises(ValueError):
+                write_manifest(directory, MODEL, REVISION)
+            self.assertFalse((directory / ".complete.json").exists())
+            (directory / "model-00002-of-00002.safetensors").write_bytes(b"second")
+            write_manifest(directory, MODEL, REVISION)
+            self.assertTrue(snapshot_ready(directory, MODEL, REVISION))
+            (directory / "model-00002-of-00002.safetensors").unlink()
+            self.assertFalse(snapshot_ready(directory, MODEL, REVISION))
+
     def test_mutable_revision_is_rejected(self):
         with self.assertRaises(ValueError):
             model_location(Path("/models"), MODEL, "main")
