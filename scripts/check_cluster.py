@@ -16,7 +16,7 @@ from urllib.request import urlopen
 
 def kubectl(context, *arguments, document=None):
     return subprocess.run(
-        ["kubectl", "--context", context, "-n", "llm-inference", *arguments],
+        ["kubectl", "--context", context, "-n", "llm-inference-lab", *arguments],
         input=json.dumps(document) if document is not None else None,
         capture_output=True, text=True, check=True,
     ).stdout
@@ -27,7 +27,7 @@ def forwarded_api(context):
     Path(".local").mkdir(exist_ok=True)
     with Path(".local/port-forward.log").open("w") as log:
         process = subprocess.Popen(
-            ["kubectl", "--context", context, "-n", "llm-inference", "port-forward", "service/vllm", "8000:8000"],
+            ["kubectl", "--context", context, "-n", "llm-inference-lab", "port-forward", "service/vllm", "8001:8000"],
             stdout=log, stderr=log,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
@@ -37,7 +37,7 @@ def forwarded_api(context):
                 if process.poll() is not None:
                     raise RuntimeError("Port forwarding failed; check .local/port-forward.log.")
                 try:
-                    with urlopen("http://127.0.0.1:8000/health", timeout=2) as response:
+                    with urlopen("http://127.0.0.1:8001/health", timeout=2) as response:
                         if response.status == 200:
                             break
                 except (URLError, TimeoutError):
@@ -103,10 +103,11 @@ def offline_cache_check(context, deployment):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--context", default="kaspersky-vllm-cpu")
+    parser.add_argument("--context", default="llm-inference-lab-gpu")
     parser.add_argument("--benchmark", action="store_true")
+    parser.add_argument("--base-url", default="http://127.0.0.1:8001")
     args = parser.parse_args()
-    smoke = [sys.executable, "scripts/smoke_test.py", "--context", args.context]
+    smoke = [sys.executable, "scripts/smoke_test.py", "--context", args.context, "--backend", "kubernetes"]
     deployment = json.loads(kubectl(args.context, "get", "deployment", "vllm", "-o", "json"))
     with forwarded_api(args.context):
         subprocess.run(smoke, check=True)

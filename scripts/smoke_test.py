@@ -24,9 +24,11 @@ def request(base_url, path, token=None, payload=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--base-url", default="http://127.0.0.1:8001")
     parser.add_argument("--token-file", type=Path, default=Path(".local/api-token"))
-    parser.add_argument("--context", default="kaspersky-vllm-cpu")
+    parser.add_argument("--context", default="llm-inference-lab-gpu")
+    parser.add_argument("--backend", choices=("compose", "kubernetes"), default="compose")
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--skip-log-check", action="store_true")
     args = parser.parse_args()
     token = args.token_file.read_text().strip()
@@ -77,8 +79,10 @@ def main():
         raise RuntimeError(f"Unknown-path check returned unexpected HTTP {status}.")
 
     if not args.skip_log_check:
+        command = (["docker", "compose", "logs", "--no-color", "--no-log-prefix", "server"] if args.backend == "compose" else
+                   ["kubectl", "--context", args.context, "-n", "llm-inference-lab", "logs", "deployment/vllm", "-c", "server"])
         result = subprocess.run(
-            ["kubectl", "--context", args.context, "-n", "llm-inference", "logs", "deployment/vllm", "-c", "server"],
+            command,
             capture_output=True, text=True, check=True,
         )
         logs = result.stdout + result.stderr
@@ -93,12 +97,16 @@ def main():
         if not any(event.get("event") == "http_request" and event.get("route") == "/v1/chat/completions" and event.get("status") == 200 for event in events):
             raise RuntimeError("No successful generation request was found in audit logs.")
 
-    print(json.dumps({
+    report = {
         "authentication": "passed", "generation": "passed", "streaming": "passed",
         "validation_error": "passed", "private_path": "passed",
         "log_privacy": "skipped" if args.skip_log_check else "passed",
         "response_characters": len(content),
-    }, indent=2))
+    }
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":

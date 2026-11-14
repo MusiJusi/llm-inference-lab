@@ -1,0 +1,37 @@
+name: Validate inference lab
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12.12'
+      - name: Unit tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+      - name: Validate deployment configuration
+        run: |
+          mkdir -p .local
+          touch .local/api-token .local/hf-token
+          docker compose config --quiet
+          kubectl kustomize k8s/overlays/local > .local/rendered.yaml
+          python scripts/check_manifests.py .local/rendered.yaml
+      - name: Build lightweight non-root downloader
+        run: |
+          docker build -t llm-inference-lab-downloader:ci -f downloader/Dockerfile .
+          docker run --rm --entrypoint python llm-inference-lab-downloader:ci -c "import os,importlib.util; assert os.getuid()==10001; assert importlib.util.find_spec('torch') is None; assert importlib.util.find_spec('vllm') is None"

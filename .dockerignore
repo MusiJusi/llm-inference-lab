@@ -10,3 +10,6 @@
 !config/**
 **/__pycache__/
 **/*.pyc
+
+!scripts/
+!scripts/check_runtime.py

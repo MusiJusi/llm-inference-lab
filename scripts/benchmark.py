@@ -164,7 +164,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8001")
     parser.add_argument("--token-file", type=Path, default=Path(".local/api-token"))
-    parser.add_argument("--model", default="qwen3-4b-instruct")
+    parser.add_argument("--model", default="qwen2.5-1.5b-instruct")
     parser.add_argument("--requests", type=int, default=8)
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--concurrency-levels", type=int, nargs="+", help="Run a suite at each concurrency level.")

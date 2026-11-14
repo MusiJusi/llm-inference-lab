@@ -8,11 +8,11 @@ import time
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--context", default="kaspersky-vllm-cpu")
+    parser.add_argument("--context", default="llm-inference-lab-gpu")
     parser.add_argument("--timeout", type=int, default=1800,
                         help="Overall startup deadline in seconds, including the first model download.")
     args = parser.parse_args()
-    command = ["kubectl", "--context", args.context, "-n", "llm-inference"]
+    command = ["kubectl", "--context", args.context, "-n", "llm-inference-lab"]
     deadline = time.monotonic() + args.timeout
     while time.monotonic() < deadline:
         result = subprocess.run(command + ["get", "pods", "-l", "app=vllm", "-o", "json"], capture_output=True, text=True, check=True)

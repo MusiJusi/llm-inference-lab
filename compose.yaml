@@ -1,0 +1,60 @@
+name: llm-inference-lab
+services:
+  download-model:
+    image: llm-inference-lab-downloader:dev
+    build:
+      context: .
+      dockerfile: downloader/Dockerfile
+    env_file: config/model.env
+    environment:
+      HF_TOKEN_FILE: /run/secrets/hf-token
+      HF_XET_HIGH_PERFORMANCE: "1"
+      HF_XET_CHUNK_CACHE_SIZE_BYTES: "0"
+    secrets: [hf-token]
+    volumes:
+      - models:/models
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=1777,size=1g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+  server:
+    image: llm-inference-lab:dev
+    build: .
+    depends_on:
+      download-model:
+        condition: service_completed_successfully
+    env_file: config/model.env
+    environment:
+      VLLM_API_KEY_FILE: /run/secrets/api-token
+    secrets: [api-token]
+    volumes:
+      - models:/models:ro
+      - ./config/inference.json:/config/inference.json:ro
+    ports:
+      - "127.0.0.1:8001:8000"
+    gpus: all
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=1777,size=2g,exec
+    shm_size: 1gb
+    mem_limit: 12g
+    cpus: 6
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 6s
+      start_period: 120s
+      retries: 80
+    restart: "no"
+volumes:
+  models:
+    name: llm-inference-lab-models
+secrets:
+  api-token:
+    file: .local/api-token
+  hf-token:
+    file: .local/hf-token

@@ -1,0 +1,7 @@
+{
+  "vllm": "0.25.1",
+  "base_image": "vllm/vllm-openai@sha256:e4f88a835143cd22aee2397a26ec6bb80b3a4a6fe0c882bcbc63822904766089",
+  "python_package_count": 263,
+  "model_runner": "V1",
+  "wsl_compatibility": "VLLM_USE_V2_MODEL_RUNNER=0"
+}
