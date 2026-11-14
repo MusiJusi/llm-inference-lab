@@ -3,7 +3,7 @@ FROM python:3.12.12-slim-bookworm@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f3
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app \
     HOME=/tmp/home HF_HOME=/tmp/huggingface HF_HUB_DISABLE_TELEMETRY=1 \
-    HF_HUB_DISABLE_PROGRESS_BARS=1 HF_HUB_DISABLE_XET=1
+    HF_HUB_DISABLE_PROGRESS_BARS=1
 COPY downloader/requirements.txt /app/requirements.txt
 RUN python -m pip install --no-cache-dir --require-hashes -r /app/requirements.txt \
     && python -m pip check \

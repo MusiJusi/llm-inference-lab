@@ -4,6 +4,7 @@ import fcntl
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 from app.model_store import model_location, snapshot_ready, write_manifest
@@ -24,21 +25,31 @@ def download(root: Path, model_id: str, revision: str) -> str:
         # Import after the cache check: the cached path cannot call the HF API.
         from huggingface_hub import snapshot_download
 
-        snapshot_download(
-            repo_id=model_id,
-            revision=revision,
-            local_dir=staging,
-            token=os.environ.get("HF_TOKEN") or False,
-            allow_patterns=["*.json", "*.safetensors", "*.model", "*.txt", "*.jinja"],
-            max_workers=4,
-        )
-        write_manifest(staging, model_id, revision)
+        for attempt in range(3):
+            try:
+                snapshot_download(
+                    repo_id=model_id,
+                    revision=revision,
+                    local_dir=staging,
+                    token=os.environ.get("HF_TOKEN") or False,
+                    allow_patterns=["*.json", "*.safetensors", "*.model", "*.txt", "*.jinja"],
+                    max_workers=4,
+                )
+                write_manifest(staging, model_id, revision)
+                break
+            except (OSError, ValueError, RuntimeError) as error:
+                if attempt == 2:
+                    raise
+                print(json.dumps({"event":"model_download_retry", "attempt":attempt+1, "error_type":type(error).__name__}),file=sys.stderr,flush=True)
+                time.sleep(2 * (attempt+1))
         staging.rename(destination)
         return "model_download_complete"
 
 
 def main() -> int:
     try:
+        if os.environ.get("HF_TOKEN_FILE") and not os.environ.get("HF_TOKEN"):
+            os.environ["HF_TOKEN"] = Path(os.environ["HF_TOKEN_FILE"]).read_text(encoding="utf-8").strip()
         event = download(
             Path(os.environ.get("MODEL_ROOT", "/models")),
             os.environ["MODEL_ID"],
