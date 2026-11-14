@@ -1,4 +1,4 @@
-"""Streaming CPU inference benchmark with warm-up and unique prompt prefixes."""
+"""Streaming LLM inference benchmark with warm-up and unique prompt prefixes."""
 
 import argparse
 import concurrent.futures
@@ -6,6 +6,8 @@ import datetime
 import json
 import math
 import statistics
+import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -50,11 +52,56 @@ def measure(base_url, token, model, prompt, max_tokens, ignore_eos=False):
         raise RuntimeError("The response is incomplete or missing content/token-usage metrics.")
     if ignore_eos and usage["completion_tokens"] != max_tokens:
         raise RuntimeError("The response did not reach the requested fixed output length.")
-    return {"ttft_s": ttft, "latency_s": latency, **{key: usage[key] for key in ("prompt_tokens", "completion_tokens")}}
+    return {"ttft_s": ttft, "latency_s": latency, "tpot_s": (latency - ttft) / (usage["completion_tokens"] - 1) if usage["completion_tokens"] > 1 else None, **{key: usage[key] for key in ("prompt_tokens", "completion_tokens")}}
 
 
 def percentile95(values):
     return sorted(values)[max(0, math.ceil(len(values) * 0.95) - 1)]
+
+
+def gpu_sample():
+    command = ["nvidia-smi", "--query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw", "--format=csv,noheader,nounits"]
+    raw = subprocess.check_output(command, text=True, timeout=5).strip().splitlines()[0]
+    values = raw.split(",")
+    result = {"elapsed_s": time.monotonic()}
+    for key, value in zip(("memory_used_mib", "memory_total_mib", "utilization_percent", "temperature_c", "power_w"), values):
+        try:
+            result[key] = float(value.strip())
+        except ValueError:
+            result[key] = None
+    return result
+
+
+class GpuMonitor:
+    def __init__(self, enabled):
+        self.enabled, self.samples = enabled, []
+        self.finished = threading.Event()
+        self.thread = None
+
+    def __enter__(self):
+        if self.enabled:
+            # Probe synchronously: do not silently omit unsupported telemetry.
+            self.samples.append(gpu_sample())
+            self.thread = threading.Thread(target=self.collect, daemon=True)
+            self.thread.start()
+        return self
+
+    def collect(self):
+        while not self.finished.wait(1):
+            try:
+                self.samples.append(gpu_sample())
+            except (OSError, subprocess.SubprocessError):
+                pass
+
+    def __exit__(self, *args):
+        self.finished.set()
+        if self.thread:
+            self.thread.join(timeout=6)
+
+    def report(self):
+        samples = [{**sample, "elapsed_s": sample["elapsed_s"] - self.samples[0]["elapsed_s"]} for sample in self.samples]
+        used = [sample["memory_used_mib"] for sample in samples if sample.get("memory_used_mib") is not None]
+        return {"scope": "whole GPU, including the Windows desktop and other applications", "sampling_interval_s": 1, "samples": samples, "peak_memory_used_mib": max(used) if used else None}
 
 
 def benchmark_case(args, token, prompt, prefix, concurrency):
@@ -107,20 +154,24 @@ def benchmark_case(args, token, prompt, prefix, concurrency):
             "requests_per_second": len(measurements) / elapsed,
             "output_tokens_per_second": sum(outputs) / elapsed,
         })
+        tpots = [item["tpot_s"] for item in measurements if item.get("tpot_s") is not None]
+        if tpots:
+            result.update(tpot_p50_s=statistics.median(tpots), tpot_p95_s=percentile95(tpots))
     return result
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--base-url", default="http://127.0.0.1:8001")
     parser.add_argument("--token-file", type=Path, default=Path(".local/api-token"))
-    parser.add_argument("--model", default="local-instruct")
+    parser.add_argument("--model", default="qwen3-4b-instruct")
     parser.add_argument("--requests", type=int, default=8)
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--concurrency-levels", type=int, nargs="+", help="Run a suite at each concurrency level.")
     parser.add_argument("--max-tokens", type=int, default=32)
     parser.add_argument("--warmup-requests", type=int, default=1)
     parser.add_argument("--ignore-eos", action="store_true", help="Generate exactly max-tokens for a controlled comparison.")
+    parser.add_argument("--gpu-metrics", action="store_true", help="Record whole-GPU memory and utilization with nvidia-smi.")
     parser.add_argument("--output", type=Path, default=Path("results/benchmark.json"))
     args = parser.parse_args(argv)
     levels = args.concurrency_levels if args.concurrency_levels is not None else [args.concurrency]
@@ -141,6 +192,8 @@ def main(argv=None):
         "timing": "client HTTP request start to first non-empty content / SSE DONE; excludes executor queue wait",
         "percentile_method": "nearest_rank",
         "prompt_prefix": "unique run/series/request identifiers before the shared context",
+        "tpot_definition": "(client latency to SSE DONE - TTFT) / (output tokens - 1); includes stream-tail overhead",
+        "gpu_metrics": args.gpu_metrics,
         "case_order": list(cases),
     }
     if args.concurrency_levels is None:
@@ -155,7 +208,10 @@ def main(argv=None):
     for run_index, run in enumerate(runs):
         for case_index, (name, prompt) in enumerate(cases.items()):
             prefix = f"Benchmark {report['run_id']}. Series {run_index:02d}{case_index:02d}."
-            result = benchmark_case(args, token, prompt, prefix, run["concurrency"])
+            with GpuMonitor(args.gpu_metrics) as monitor:
+                result = benchmark_case(args, token, prompt, prefix, run["concurrency"])
+            if args.gpu_metrics:
+                result["gpu"] = monitor.report()
             run["cases"][name] = result
             # Persist completed cases even if a later case is interrupted.
             args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

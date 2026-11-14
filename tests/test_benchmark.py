@@ -29,6 +29,11 @@ class BenchmarkTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     benchmark.measure("http://localhost", "PRIVATE_TOKEN", "model", "PRIVATE_PROMPT", 4, True)
 
+    def test_time_per_output_token_uses_remaining_output_tokens(self):
+        with patch.object(benchmark, "urlopen", return_value=response()), patch.object(benchmark.time, "perf_counter", side_effect=[0, 0.2, 2]):
+            result = benchmark.measure("http://localhost", "token", "model", "prompt", 4, True)
+        self.assertAlmostEqual(result["tpot_s"], 0.6)
+
     def test_suite_uses_unique_prompts_and_records_no_private_content(self):
         with tempfile.TemporaryDirectory() as directory:
             token = Path(directory) / "token"
