@@ -108,8 +108,21 @@ class GpuMonitor:
 
 def benchmark_case(args, token, prompt, prefix, concurrency):
     recorded_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    for index in range(args.warmup_requests):
-        measure(args.base_url, token, args.model, f"{prefix} Warmup {index:06d}. {prompt}", args.max_tokens, args.ignore_eos)
+    if args.warmup_rounds is None:
+        warmup_count = args.warmup_requests
+        for index in range(warmup_count):
+            measure(args.base_url, token, args.model, f"{prefix} Warmup {index:06d}. {prompt}", args.max_tokens, args.ignore_eos)
+    else:
+        warmup_count = args.warmup_rounds * concurrency
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+            for round_index in range(args.warmup_rounds):
+                warmups = [executor.submit(
+                    measure, args.base_url, token, args.model,
+                    f"{prefix} Warmup {round_index:06d}.{index:06d}. {prompt}",
+                    args.max_tokens, args.ignore_eos,
+                ) for index in range(concurrency)]
+                for future in warmups:
+                    future.result()
     measurements = []
     errors = []
     started = time.perf_counter()
@@ -139,6 +152,7 @@ def benchmark_case(args, token, prompt, prefix, concurrency):
         "successful_requests": len(measurements), "failed_requests": len(errors),
         "error_rate": len(errors) / args.requests, "errors": errors,
         "wall_time_s": elapsed, "measurements": measurements,
+        "warmup_requests": warmup_count,
     }
     if measurements:
         ttfts = [item["ttft_s"] for item in measurements]
@@ -171,13 +185,15 @@ def main(argv=None):
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--concurrency-levels", type=int, nargs="+", help="Run a suite at each concurrency level.")
     parser.add_argument("--max-tokens", type=int, default=32)
-    parser.add_argument("--warmup-requests", type=int, default=1)
+    warmup = parser.add_mutually_exclusive_group()
+    warmup.add_argument("--warmup-requests", type=int, default=1)
+    warmup.add_argument("--warmup-rounds", type=int, help="Warm up full concurrent batches before timing a case.")
     parser.add_argument("--ignore-eos", action="store_true", help="Generate exactly max-tokens for a controlled comparison.")
     parser.add_argument("--gpu-metrics", action="store_true", help="Record whole-GPU memory and utilization with nvidia-smi.")
     parser.add_argument("--output", type=Path, default=ROOT / "results/benchmark.json")
     args = parser.parse_args(argv)
     levels = args.concurrency_levels if args.concurrency_levels is not None else [args.concurrency]
-    if min(args.requests, args.max_tokens, *levels) < 1 or args.warmup_requests < 0:
+    if min(args.requests, args.max_tokens, *levels) < 1 or args.warmup_requests < 0 or (args.warmup_rounds is not None and args.warmup_rounds < 0):
         parser.error("Request count, concurrency and max tokens must be positive; warm-up must be non-negative.")
     if len(set(levels)) != len(levels):
         parser.error("Concurrency levels must be unique.")
@@ -185,11 +201,13 @@ def main(argv=None):
     long_context = "A container packages an application with its dependencies and runs isolated processes. " * 64
     cases = {"short": "Explain containers in one sentence.", "long": long_context + "Summarize the text in one sentence."}
     report = {
-        "schema_version": 2, "status": "running", "run_id": uuid.uuid4().hex,
+        "schema_version": 3 if args.warmup_rounds is not None else 2, "status": "running", "run_id": uuid.uuid4().hex,
         "recorded_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "model": args.model, "requests_per_case": args.requests,
         "max_output_tokens": args.max_tokens, "ignore_eos": args.ignore_eos,
-        "warmup_requests_per_case": args.warmup_requests,
+        "warmup_requests_per_case": args.warmup_requests if args.warmup_rounds is None else None,
+        "warmup_rounds_per_case": args.warmup_rounds,
+        "warmup_mode": "sequential_requests" if args.warmup_rounds is None else "concurrent_rounds",
         "load_model": "closed_loop; at most concurrency in-flight requests; no imposed arrival rate",
         "timing": "client HTTP request start to first non-empty content / SSE DONE; excludes executor queue wait",
         "percentile_method": "nearest_rank",

@@ -81,6 +81,22 @@ class BenchmarkTests(unittest.TestCase):
             self.assertEqual(list(foreign.iterdir()),[])
             self.assertEqual(json.loads((lab/"results/benchmark.json").read_text())["status"],"passed")
 
+    def test_concurrent_warmup_is_not_counted_as_measured_requests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            token=Path(directory)/"token";token.write_text("PRIVATE_TOKEN")
+            output=Path(directory)/"report.json"
+            with patch.object(benchmark,"urlopen",side_effect=lambda *a,**k:response()) as send,contextlib.redirect_stdout(io.StringIO()):
+                status=benchmark.main(["--token-file",str(token),"--output",str(output),"--requests","2","--concurrency-levels","1","2","--warmup-rounds","2","--max-tokens","4","--ignore-eos"])
+            report=json.loads(output.read_text())
+            self.assertEqual(status,0)
+            self.assertEqual(report["warmup_mode"],"concurrent_rounds")
+            self.assertEqual(send.call_count,20)
+            for run in report["runs"]:
+                for case in run["cases"].values():
+                    self.assertEqual(case["warmup_requests"],2*run["concurrency"])
+                    self.assertEqual(case["successful_requests"],2)
+                    self.assertEqual(case["total_output_tokens"],8)
+
     def test_http_failures_are_counted_without_logging_error_body(self):
         def unauthorized(*args, **kwargs):
             raise HTTPError("http://localhost/PRIVATE_URL", 401, "PRIVATE_ERROR", {}, io.BytesIO(b"PRIVATE_BODY"))
