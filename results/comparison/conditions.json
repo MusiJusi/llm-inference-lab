@@ -1,0 +1,11 @@
+{
+  "observed_at_utc": "2026-11-15T14:58:19.7975617Z",
+  "power_line_status": "Online",
+  "nvidia_driver": "610.74",
+  "platform": "Windows / WSL 2, Docker Desktop",
+  "note": "Power status observed at this timestamp; GPU samples are stored in each benchmark artifact.",
+  "server_preemptions_at_end": {
+    "qwen2.5-1.5b": 0.0,
+    "qwen3-4b": 0.0
+  }
+}

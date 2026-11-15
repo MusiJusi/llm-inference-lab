@@ -1,0 +1,11 @@
+{
+  "endpoint": "passed",
+  "authentication": "passed",
+  "streaming": "passed",
+  "log_privacy": "passed",
+  "network_forbidden_cache": "passed",
+  "restart_same_image": "passed",
+  "post_restart_endpoint": "passed",
+  "profile": "qwen2.5-1.5b",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct"
+}

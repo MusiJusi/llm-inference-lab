@@ -1,0 +1,48 @@
+{
+  "recorded_at_utc": "2026-11-15T14:42:20.444285+00:00",
+  "source_commit": "986961c4157a8cee7ee65e4c8b4fb2316921691c",
+  "profile": "qwen3-4b",
+  "runtime": {
+    "uid": 10001,
+    "vllm": "0.25.1",
+    "torch": "2.11.0+cu130",
+    "python": "3.12.13",
+    "cuda": "13.0",
+    "gpu": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+    "compute_capability": [
+      12,
+      0
+    ],
+    "gpu_memory_bytes": 12820480000,
+    "cuda_computation": "passed"
+  },
+  "image_id": "sha256:b5005a26aed9a9990fad92c1d96084739aee8df1925eb8e7d98691eec0dc55a4",
+  "base_image_digests": [
+    "vllm/vllm-openai@sha256:e4f88a835143cd22aee2397a26ec6bb80b3a4a6fe0c882bcbc63822904766089"
+  ],
+  "inference": {
+    "served_model_name": "qwen3-4b-instruct",
+    "dtype": "bfloat16",
+    "max_model_len": 4096,
+    "max_num_seqs": 4,
+    "max_num_batched_tokens": 2048,
+    "gpu_memory_utilization": 0.82,
+    "enable_prefix_caching": true,
+    "enable_chunked_prefill": true,
+    "enforce_eager": true
+  },
+  "snapshot": {
+    "weight_bytes": 8044982000,
+    "weight_shards": 3
+  },
+  "model": {
+    "MODEL_ID": "Qwen/Qwen3-4B-Instruct-2507",
+    "MODEL_REVISION": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "MODEL_ROOT": "/models"
+  },
+  "deployment": "Docker Compose, Windows / WSL 2, one NVIDIA GPU",
+  "limits": {
+    "cpus": 6.0,
+    "memory_gib": 12.0
+  }
+}
