@@ -307,11 +307,11 @@
     }
   ],
   "artifacts_sha256": {
-    "results/comparison/qwen2.5-1.5b/benchmark.json": "59d49e13238b63991b5b809f4ad7a084c000942cf5b38df76ec9b922ebd4f35a",
-    "results/comparison/qwen2.5-1.5b/environment.json": "f67b744a31c11179e4441f1e3f0cddee181a7fdd0b7af9af3bbc752658fbdd21",
-    "results/comparison/qwen2.5-1.5b/integration.json": "92b7b6409d2ed736345ccaf838af1d9ba9258cd893b453abd3621dbe69236669",
-    "results/comparison/qwen3-4b/benchmark.json": "43fe3b9f2eda0e88834b6e2b0583ebd330951a27b3f8eda825d0322c3b669610",
-    "results/comparison/qwen3-4b/environment.json": "91d945d927e17d366dc64329e54ebc671897d1343cc27a7ffdd357825b57cb5d",
-    "results/comparison/qwen3-4b/integration.json": "d445f8947106d86d6dab05b393a5285663bf7d0f7ad802617f5495cc57cf1835"
+    "results/comparison/qwen2.5-1.5b/benchmark.json": "699071361095099ddf09d2dae4a85ea2d611bca90c22bc596fd834d77fe929ef",
+    "results/comparison/qwen2.5-1.5b/environment.json": "15404366b91fd1cc4d1cd14109c9402f23bf918cce202883a051c27d1acb7db2",
+    "results/comparison/qwen2.5-1.5b/integration.json": "ba3284f21574560a594b775daffa81ddad2e3f30a0df2dd992bb458cf264705c",
+    "results/comparison/qwen3-4b/benchmark.json": "3efc6a7416476499a47069f2775b5fc8ffa46c0ffa6cc8ce969adc7b15d3265f",
+    "results/comparison/qwen3-4b/environment.json": "171982d54a629a70140959dfd710946f115ac251643d86c8af18b487332f0a0e",
+    "results/comparison/qwen3-4b/integration.json": "749d8af6422db94a94cd4dcf815b0e0ed4ee1d6e3ebe0b3acb84a0b6a7cb9505"
   }
 }
