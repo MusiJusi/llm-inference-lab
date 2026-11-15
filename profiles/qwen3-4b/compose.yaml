@@ -1,0 +1,18 @@
+services:
+  download-model:
+    env_file: profiles/qwen3-4b/model.env
+    volumes:
+      - type: bind
+        source: ./models
+        target: /models
+  server:
+    env_file: profiles/qwen3-4b/model.env
+    volumes:
+      - type: bind
+        source: ./models
+        target: /models
+        read_only: true
+      - type: bind
+        source: ./profiles/qwen3-4b/inference.json
+        target: /config/inference.json
+        read_only: true

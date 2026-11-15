@@ -1,0 +1,10 @@
+services:
+  download-model:
+    env_file: profiles/qwen2.5-1.5b/model.env
+  server:
+    env_file: profiles/qwen2.5-1.5b/model.env
+    volumes:
+      - type: bind
+        source: ./profiles/qwen2.5-1.5b/inference.json
+        target: /config/inference.json
+        read_only: true

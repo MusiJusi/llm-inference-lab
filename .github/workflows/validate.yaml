@@ -29,6 +29,7 @@ jobs:
           mkdir -p .local
           touch .local/api-token .local/hf-token
           docker compose config --quiet
+          python -m scripts.runtime
           kubectl kustomize k8s/overlays/local > .local/rendered.yaml
           python scripts/check_manifests.py .local/rendered.yaml
       - name: Build lightweight non-root downloader

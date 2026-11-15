@@ -3,7 +3,7 @@
   "dtype": "bfloat16",
   "max_model_len": 4096,
   "max_num_seqs": 4,
-  "max_num_batched_tokens": 4096,
+  "max_num_batched_tokens": 2048,
   "gpu_memory_utilization": 0.82,
   "enable_prefix_caching": true,
   "enable_chunked_prefill": true,

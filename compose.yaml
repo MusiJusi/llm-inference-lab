@@ -18,6 +18,11 @@ services:
       - /tmp:uid=10001,gid=10001,mode=1777,size=1g
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: "no"
   server:
     image: llm-inference-lab:dev
@@ -49,6 +54,11 @@ services:
       timeout: 6s
       start_period: 120s
       retries: 80
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: "no"
 volumes:
   models:

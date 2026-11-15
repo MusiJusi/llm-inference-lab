@@ -3,12 +3,15 @@
 import argparse
 import json
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
+from scripts.runtime import PROFILES, compose_command
 
 
 def request(base_url, path, token=None, payload=None):
@@ -29,6 +32,7 @@ def main():
     parser.add_argument("--base-url", default="http://127.0.0.1:8001")
     parser.add_argument("--token-file", type=Path, default=ROOT / ".local/api-token")
     parser.add_argument("--context", default="llm-inference-lab-gpu")
+    parser.add_argument("--profile", choices=PROFILES, default="default")
     parser.add_argument("--backend", choices=("compose", "kubernetes"), default="compose")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--skip-log-check", action="store_true")
@@ -81,7 +85,7 @@ def main():
         raise RuntimeError(f"Unknown-path check returned unexpected HTTP {status}.")
 
     if not args.skip_log_check:
-        command = (["docker", "compose", "logs", "--no-color", "--no-log-prefix", "server"] if args.backend == "compose" else
+        command = (compose_command(args.profile)+["logs", "--no-color", "--no-log-prefix", "server"] if args.backend == "compose" else
                    ["kubectl", "--context", args.context, "-n", "llm-inference-lab", "logs", "deployment/vllm", "-c", "server"])
         result = subprocess.run(
             command,
