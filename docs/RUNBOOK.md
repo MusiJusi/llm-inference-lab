@@ -83,7 +83,33 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1 -Ski
 
 Compose читает конфигурацию из `config/`. Для Kubernetes соответствующие файлы лежат в `k8s/base/config/`; тест проверяет их совпадение. После изменения параметров примените конфигурацию и перезапустите сервис. Менять или пересобирать GPU-образ для смены модели и лимитов не требуется.
 
-В `profiles/qwen3-4b/` сохранён дополнительный профиль Qwen3-4B-Instruct-2507. Он требует отдельной загрузки весов и проверки доступной памяти. Опубликованные результаты относятся к основному профилю Qwen2.5-1.5B.
+## Выбор модели в Compose
+
+| Профиль | Модель | Где лежат веса | Память GPU / пакет |
+| --- | --- | --- | --- |
+| `default` | Qwen2.5-1.5B-Instruct | Docker volume | 65% / 4096 токенов |
+| `qwen2.5-1.5b` | Qwen2.5-1.5B-Instruct | Тот же Docker volume | 82% / 2048 токенов |
+| `qwen3-4b` | Qwen3-4B-Instruct-2507 | Папка `models/` внутри проекта | 82% / 2048 токенов |
+
+Все профили используют BF16, контекст 4096 и до четырёх последовательностей. Два именованных профиля имеют одинаковые лимиты для сравнения моделей. Скрипт заменяет только сервер и загрузчик этого Compose-проекта; одновременно работает одна модель.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1 -Profile qwen3-4b -SkipBuild
+python scripts/check_gpu.py --profile qwen3-4b --output results/comparison/qwen3-4b/environment.json
+python scripts/check_local.py --profile qwen3-4b --output-dir results/comparison/qwen3-4b
+```
+
+Для первого запуска без готовых образов уберите `-SkipBuild`. Готовые веса проверяются по SHA-256 без повторного скачивания. Qwen3 занимает около 7,5 ГиБ в `models/`; на проверенной машине это `D:\GitProjects\LLM_inference\models`. Папка подключается напрямую, сервер получает доступ только для чтения. Образ Docker не содержит весов.
+
+Команды `docker compose` без дополнительных `-f` описывают профиль `default`. Для ручного управления Qwen3 используйте оба файла:
+
+```powershell
+docker compose -f compose.yaml -f profiles/qwen3-4b/compose.yaml ps
+docker compose -f compose.yaml -f profiles/qwen3-4b/compose.yaml logs --no-color server
+docker compose -f compose.yaml -f profiles/qwen3-4b/compose.yaml stop server
+```
+
+Результаты и команды сравнения находятся в [COMPARISON.md](COMPARISON.md). Kubernetes проверен с Qwen2.5; профили Qwen3 в этом разделе относятся к Compose.
 
 ## Диагностика
 
